@@ -51,6 +51,7 @@ CONFIG = {
     "margin_lr_percent": 0.242,         # 24.2% each side = 261px at 1080
     "margin_top": 0.054,                # 5.4% of height for top
     "icon_scale": 2.55,                 # 15% smaller than previous 3.0
+    "line_spacing": 1.2,                # 120% line spacing
 }
 
 # =============================================================================
@@ -221,7 +222,7 @@ def generate_image(
     # Wrap and draw quote
     lines = wrap_text(quote, quote_font, max_text_width, draw)
     
-    line_height = quote_font_size + int(quote_font_size * 0.25)  # 25% line spacing
+    line_height = int(quote_font_size * config['line_spacing'])  # 120% line spacing default
     total_text_height = len(lines) * line_height
     
     # Center quote BETWEEN icon bottom and attribution top
@@ -320,31 +321,44 @@ with st.expander("⚙️ Settings", expanded=True):
     with st.expander("🎛️ Fine-tune (optional)"):
         tcol1, tcol2 = st.columns(2)
         with tcol1:
-            CONFIG['quote_font_percent'] = st.slider(
+            quote_font_pct = st.slider(
                 "Quote font size %", 
                 min_value=0.04, max_value=0.10, 
                 value=0.06, step=0.005,
                 help="6% = matches Figma"
             )
-            CONFIG['margin_lr_percent'] = st.slider(
+            margin_lr_pct = st.slider(
                 "Side margins %",
                 min_value=0.10, max_value=0.35,
                 value=0.242, step=0.01,
                 help="24.2% = matches Figma"
             )
+            line_spacing_pct = st.slider(
+                "Line spacing %",
+                min_value=1.0, max_value=1.5,
+                value=1.2, step=0.05,
+                help="1.2 = 120% (matches Figma)"
+            )
         with tcol2:
-            CONFIG['attribution_font_percent'] = st.slider(
+            attr_font_pct = st.slider(
                 "Attribution font %",
                 min_value=0.02, max_value=0.05,
                 value=0.0315, step=0.005,
                 help="3.15% = matches Figma"
             )
-            CONFIG['icon_scale'] = st.slider(
+            icon_scale_val = st.slider(
                 "Icon size",
                 min_value=1.5, max_value=4.0,
                 value=2.55, step=0.15,
                 help="2.55 = matches Figma"
             )
+        
+        # Update config with slider values
+        CONFIG['quote_font_percent'] = quote_font_pct
+        CONFIG['attribution_font_percent'] = attr_font_pct
+        CONFIG['margin_lr_percent'] = margin_lr_pct
+        CONFIG['icon_scale'] = icon_scale_val
+        CONFIG['line_spacing'] = line_spacing_pct
 
 # -----------------------------------------------------------------------------
 # STATUS & GENERATE
