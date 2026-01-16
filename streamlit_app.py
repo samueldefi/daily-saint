@@ -210,6 +210,11 @@ def generate_image(
     icon_y = margin_top
     bg.paste(icon, (icon_x, icon_y), icon)
     
+    # Calculate attribution position first (we need this for centering)
+    attr_bbox = draw.textbbox((0, 0), saint_name, font=attribution_font)
+    attr_height = attr_bbox[3] - attr_bbox[1]
+    attr_y = height - margin_top - attr_height  # Bottom margin
+    
     # Calculate text area with percentage-based margins
     max_text_width = width - (margin_lr * 2)
     
@@ -218,7 +223,11 @@ def generate_image(
     
     line_height = quote_font_size + int(quote_font_size * 0.25)  # 25% line spacing
     total_text_height = len(lines) * line_height
-    quote_y = (height - total_text_height) // 2 - int(height * 0.04)  # Slightly above center
+    
+    # Center quote BETWEEN icon bottom and attribution top
+    icon_bottom = icon_y + icon.height
+    available_space = attr_y - icon_bottom
+    quote_y = icon_bottom + (available_space - total_text_height) // 2
     
     text_color = hex_to_rgb(config['text_color'])
     for i, line in enumerate(lines):
@@ -229,10 +238,8 @@ def generate_image(
         draw.text((x, y), line, font=quote_font, fill=text_color)
     
     # Draw attribution
-    attr_bbox = draw.textbbox((0, 0), saint_name, font=attribution_font)
     attr_width = attr_bbox[2] - attr_bbox[0]
     attr_x = (width - attr_width) // 2
-    attr_y = height - margin_top - attribution_font_size - 20  # Bottom margin
     draw.text((attr_x, attr_y), saint_name, font=attribution_font, fill=text_color)
     
     return bg.convert('RGB')
