@@ -1,121 +1,84 @@
-# The Daily Saint - Simplified Quote Generator
+# The Daily Saint - Image Generator v2
 
-Clean, streamlined version with fixed defaults for batch processing Instagram quote images.
+Batch generate saint quote images.
 
-## What's Different in This Version?
+## Features
 
-### Removed (For Cleaner Code)
-- ❌ Fine-tuning sliders for font sizes, margins, spacing
-- ❌ Complex UI controls
-- ❌ Real-time preview adjustments
-
-### Kept (Core Functionality)
-- ✅ Batch image generation
-- ✅ Random or manual quote/image selection
-- ✅ Film grain toggle
-- ✅ ZIP download for batches
-- ✅ All the design defaults we established:
-  - Quote font: 6% of width (42px at 698px)
-  - Attribution: 3.15% of width (22px at 698px)
-  - Side margins: 24.2% (169px at 698px)
-  - Top/bottom margins: 5.4% (48px at 882px)
-  - Line spacing: 120%
-  - Icon size: 6.9% (48px at 698px)
-
-## Fixed Defaults
-
-All typography and spacing is standardized based on the percentages we refined:
-
-```python
-CONFIG = {
-    'canvas_width': 698,
-    'canvas_height': 882,
-    'output_width': 1080,
-    'output_height': 1350,
-    
-    'quote_font_size_pct': 6.0,
-    'attribution_font_size_pct': 3.15,
-    'side_margin_pct': 24.2,
-    'top_margin_pct': 5.4,
-    'bottom_margin_pct': 5.4,
-    'line_spacing_pct': 120,
-    'icon_size_pct': 6.9,
-    
-    'text_color': '#F4EFE4',
-    'film_grain_opacity': 0.15,
-}
-```
+-  **One-click batch generation** — all quotes generated at once
+-  **Random image pairing** — each quote gets a random background
+-  **B&W mode** — grayscale backgrounds for brand consistency (default ON)
+-  **Solid color mode** — flat color backgrounds with color picker
+-  **Proper margins** — text stays away from edges
+-  **Smart filenames** — saint name in every file for easy searching
+-  **ZIP download** — all images in one download
 
 ## Deploy to Streamlit Cloud
 
-### 1. Create GitHub Repository
+### 1. Create GitHub Repo
+- Go to [github.com/new](https://github.com/new)
+- Name: `daily-saint-generator`
+- Private repo recommended
+- Create
 
-```bash
-git init
-git add .
-git commit -m "Initial commit - simplified Daily Saint generator"
-git branch -M main
-git remote add origin https://github.com/YOUR_USERNAME/daily-saint-simple.git
-git push -u origin main
+### 2. Upload These Files
+```
+streamlit_app.py
+requirements.txt
+packages.txt
 ```
 
-### 2. Deploy on Streamlit Cloud
-
-1. Go to [share.streamlit.io](https://share.streamlit.io)
-2. Sign in with GitHub
-3. Click "New app"
-4. Select repository: `daily-saint-simple`
-5. Main file: `streamlit_app_simplified.py`
-6. Click "Deploy"
+### 3. Deploy
+- Go to [share.streamlit.io](https://share.streamlit.io)
+- Sign in with GitHub
+- New app → select your repo
+- Main file: `streamlit_app.py`
+- Deploy
 
 ## Using the App
 
-### Setup (One Time)
-1. Upload `saints-quotes.json`
-2. Upload fonts (Rhymes VFI Bold & Light)
-3. Upload cross icon SVG
-4. Upload background images
+### Each Session, Upload:
+1. **Quotes JSON** — your saints-quotes.json
+2. **Background images** — drag & drop multiple
+3. **Fonts** (in expander) — Bold + Light TTF files
 
-### Single Image Mode
-1. Filter by date/saint
-2. Choose quote
-3. Select background (random or specific)
-4. Generate & download
+### Settings:
+- **B&W backgrounds** — ON by default, toggle OFF for color
+- **Solid color** — toggle ON to use flat color instead of images
 
-### Batch Mode
-1. Choose number of images (1-50)
-2. Filter options (all/today/random)
-3. Generate batch
-4. Download ZIP file
+### Generate:
+1. Click **GENERATE ALL**
+2. Wait for progress bar
+3. Click **Download ZIP**
 
-## File Structure
+### Want Different Pairings?
+Just click GENERATE ALL again — images are randomly assigned each time.
 
+## File Naming
+
+Output files are named: `{Saint_Name}_{number}.jpg`
+
+Examples:
+- `St_Catherine_of_Siena_001.jpg`
+- `St_Francis_de_Sales_002.jpg`
+- `Mary_Mother_of_God_003.jpg`
+
+## Quotes JSON Format
+
+```json
+{
+  "quotes": [
+    {
+      "text": "Be who God meant you to be...",
+      "saint": "St. Catherine of Siena",
+      "feastDay": "04-29"
+    }
+  ]
+}
 ```
-daily-saint-simple/
-├── streamlit_app_simplified.py   # Main app (simplified)
-├── requirements.txt               # Python dependencies
-├── packages.txt                   # System dependencies
-└── README.md                      # This file
-```
 
-## Benefits of This Version
+## Tips
 
-1. **Cleaner Code** - Removed 200+ lines of slider logic
-2. **Faster** - No real-time recalculation
-3. **Consistent** - Fixed defaults = consistent output
-4. **Batch Optimized** - Focus on generating many images quickly
-5. **Figma Ready** - Do your custom tweaks in Figma, not sliders
-
-## Technical Details
-
-- Canvas: 698x882px (internal)
-- Output: 1080x1350px (Instagram)
-- All dimensions scale via percentages
-- Black & white backgrounds with contrast adjustment
-- Film grain overlay at 15% opacity
-- Cream text (#F4EFE4) on dark backgrounds
-- Centered layout with cross icon at top
-
----
-
-Made with ✝️ for The Daily Saint
+- Upload more images than quotes for better variety
+- Re-generate multiple times to find good pairings
+- Use B&W mode for consistent branding
+- Solid color mode is great for variety in your feed
