@@ -1,16 +1,16 @@
 # The Daily Saint - Image Generator v2
 
-Batch generate Instagram-ready saint quote images.
+Batch generate saint quote images.
 
 ## Features
 
-- ✨ **One-click batch generation** — all quotes generated at once
-- 🎲 **Random image pairing** — each quote gets a random background
-- ⬛ **B&W mode** — grayscale backgrounds for brand consistency (default ON)
-- 🎨 **Solid color mode** — flat color backgrounds with color picker
-- 📏 **Proper margins** — text stays away from edges
-- 📁 **Smart filenames** — saint name in every file for easy searching
-- 📦 **ZIP download** — all images in one download
+-  **One-click batch generation** — all quotes generated at once
+-  **Random image pairing** — each quote gets a random background
+-  **B&W mode** — grayscale backgrounds for brand consistency (default ON)
+-  **Solid color mode** — flat color backgrounds with color picker
+-  **Proper margins** — text stays away from edges
+-  **Smart filenames** — saint name in every file for easy searching
+-  **ZIP download** — all images in one download
 
 ## Deploy to Streamlit Cloud
 
