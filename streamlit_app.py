@@ -11,6 +11,7 @@ import json
 import random
 import base64
 import zipfile
+import numpy as np
 from datetime import datetime
 
 # =============================================================================
@@ -44,9 +45,12 @@ CONFIG = {
     "overlay_1_opacity": 0.5,
     "overlay_2_color": (0, 0, 0),
     "overlay_2_opacity": 0.2,
-    "quote_font_size": 68,
-    "attribution_font_size": 34,
-    "side_margin": 100,  # Margin on each side for text
+    # Percentages based on Figma (698x882): 42px font, 169px margin, 22px attribution
+    "quote_font_percent": 0.06,        # 6% of width = 65px at 1080
+    "attribution_font_percent": 0.0315, # 3.15% of width = 34px at 1080
+    "margin_lr_percent": 0.242,         # 24.2% each side = 261px at 1080
+    "margin_top": 0.054,                # 5.4% of height for top
+    "icon_scale": 2.55,                 # 15% smaller than previous 3.0
 }
 
 # =============================================================================
@@ -74,6 +78,35 @@ def load_svg_as_image(svg_string, scale=3):
 def apply_overlay(image, color, opacity):
     overlay = Image.new('RGBA', image.size, (*color, int(255 * opacity)))
     return Image.alpha_composite(image.convert('RGBA'), overlay)
+
+
+def soft_light_blend(base, blend, intensity=0.5):
+    """Apply soft light blending mode for film grain effect."""
+    base_arr = np.array(base).astype(float) / 255.0
+    blend_arr = np.array(blend.convert('L')).astype(float) / 255.0
+    
+    # Normalize blend around 0.5 (neutral gray) with intensity control
+    blend_arr = 0.5 + (blend_arr - blend_arr.mean()) * intensity
+    blend_arr = np.clip(blend_arr, 0, 1)
+    
+    result = np.zeros_like(base_arr)
+    
+    for c in range(min(3, base_arr.shape[2])):  # RGB channels
+        b = base_arr[:,:,c]
+        mask = blend_arr < 0.5
+        
+        result[:,:,c] = np.where(
+            mask,
+            2 * b * blend_arr + b * b * (1 - 2 * blend_arr),
+            2 * b * (1 - blend_arr) + np.sqrt(np.clip(b, 0.0001, 1)) * (2 * blend_arr - 1)
+        )
+    
+    # Keep alpha channel from base if present
+    if base_arr.shape[2] == 4:
+        result[:,:,3] = base_arr[:,:,3]
+    
+    result = np.clip(result * 255, 0, 255).astype(np.uint8)
+    return Image.fromarray(result, mode=base.mode)
 
 
 def wrap_text(text, font, max_width, draw):
@@ -112,12 +145,21 @@ def generate_image(
     grayscale: bool = True,
     bold_font_bytes: bytes = None,
     light_font_bytes: bytes = None,
+    grain_bytes: bytes = None,
+    grain_intensity: float = 0.5,
     config: dict = CONFIG
 ) -> Image.Image:
     """Generate a saint quote image."""
     
     width = config['output_width']
     height = config['output_height']
+    
+    # Calculate sizes from percentages
+    quote_font_size = int(width * config['quote_font_percent'])
+    attribution_font_size = int(width * config['attribution_font_percent'])
+    margin_lr = int(width * config['margin_lr_percent'])
+    margin_top = int(height * config['margin_top'])
+    icon_scale = config['icon_scale']
     
     # Create background
     if solid_color:
@@ -150,27 +192,33 @@ def generate_image(
         bg = apply_overlay(bg, config['overlay_1_color'], config['overlay_1_opacity'])
         bg = apply_overlay(bg, config['overlay_2_color'], config['overlay_2_opacity'])
     
+    # Apply grain texture BEFORE text/icon (soft light blend)
+    if grain_bytes:
+        grain = Image.open(io.BytesIO(grain_bytes))
+        grain_resized = grain.resize((width, height), Image.Resampling.LANCZOS)
+        bg = soft_light_blend(bg, grain_resized, intensity=grain_intensity)
+    
     draw = ImageDraw.Draw(bg)
     
     # Load fonts
-    quote_font = ImageFont.truetype(io.BytesIO(bold_font_bytes), config['quote_font_size'])
-    attribution_font = ImageFont.truetype(io.BytesIO(light_font_bytes), config['attribution_font_size'])
+    quote_font = ImageFont.truetype(io.BytesIO(bold_font_bytes), quote_font_size)
+    attribution_font = ImageFont.truetype(io.BytesIO(light_font_bytes), attribution_font_size)
     
-    # Place icon
-    icon = load_svg_as_image(ICON_SVG, scale=3)
+    # Place icon (scaled down 15%)
+    icon = load_svg_as_image(ICON_SVG, scale=icon_scale)
     icon_x = (width - icon.width) // 2
-    bg.paste(icon, (icon_x, 80), icon)
+    icon_y = margin_top
+    bg.paste(icon, (icon_x, icon_y), icon)
     
-    # Calculate text area with margins
-    margin = config['side_margin']
-    max_text_width = width - (margin * 2)
+    # Calculate text area with percentage-based margins
+    max_text_width = width - (margin_lr * 2)
     
     # Wrap and draw quote
     lines = wrap_text(quote, quote_font, max_text_width, draw)
     
-    line_height = config['quote_font_size'] + 16
+    line_height = quote_font_size + int(quote_font_size * 0.25)  # 25% line spacing
     total_text_height = len(lines) * line_height
-    quote_y = (height - total_text_height) // 2 - 50
+    quote_y = (height - total_text_height) // 2 - int(height * 0.04)  # Slightly above center
     
     text_color = hex_to_rgb(config['text_color'])
     for i, line in enumerate(lines):
@@ -184,7 +232,7 @@ def generate_image(
     attr_bbox = draw.textbbox((0, 0), saint_name, font=attribution_font)
     attr_width = attr_bbox[2] - attr_bbox[0]
     attr_x = (width - attr_width) // 2
-    attr_y = height - 120
+    attr_y = height - margin_top - attribution_font_size - 20  # Bottom margin
     draw.text((attr_x, attr_y), saint_name, font=attribution_font, fill=text_color)
     
     return bg.convert('RGB')
@@ -224,12 +272,14 @@ with col2:
                                      accept_multiple_files=True, key="images")
 
 # Font uploads (in expander to keep UI clean)
-with st.expander("🔤 Fonts (upload once per session)"):
+with st.expander("🔤 Fonts & Grain (upload once per session)"):
     fcol1, fcol2 = st.columns(2)
     with fcol1:
         bold_font_file = st.file_uploader("Bold font (quotes)", type=['ttf', 'otf'], key="bold")
     with fcol2:
         light_font_file = st.file_uploader("Light font (attribution)", type=['ttf', 'otf'], key="light")
+    
+    grain_file = st.file_uploader("🎞️ Film grain texture (optional)", type=['png', 'jpg'], key="grain")
 
 # -----------------------------------------------------------------------------
 # SETTINGS (compact)
@@ -248,6 +298,46 @@ with st.expander("⚙️ Settings", expanded=True):
         solid_color = st.color_picker("Background color", value="#1a1a1a")
     else:
         solid_color = None
+    
+    # Grain intensity (only show if grain uploaded)
+    grain_intensity = 0.5  # default
+    if grain_file:
+        grain_intensity = st.slider(
+            "🎞️ Grain intensity",
+            min_value=0.1, max_value=1.0,
+            value=0.5, step=0.1,
+            help="0.5 = subtle, 1.0 = strong"
+        )
+    
+    # Advanced settings
+    with st.expander("🎛️ Fine-tune (optional)"):
+        tcol1, tcol2 = st.columns(2)
+        with tcol1:
+            CONFIG['quote_font_percent'] = st.slider(
+                "Quote font size %", 
+                min_value=0.04, max_value=0.10, 
+                value=0.06, step=0.005,
+                help="6% = matches Figma"
+            )
+            CONFIG['margin_lr_percent'] = st.slider(
+                "Side margins %",
+                min_value=0.10, max_value=0.35,
+                value=0.242, step=0.01,
+                help="24.2% = matches Figma"
+            )
+        with tcol2:
+            CONFIG['attribution_font_percent'] = st.slider(
+                "Attribution font %",
+                min_value=0.02, max_value=0.05,
+                value=0.0315, step=0.005,
+                help="3.15% = matches Figma"
+            )
+            CONFIG['icon_scale'] = st.slider(
+                "Icon size",
+                min_value=1.5, max_value=4.0,
+                value=2.55, step=0.15,
+                help="2.55 = matches Figma"
+            )
 
 # -----------------------------------------------------------------------------
 # STATUS & GENERATE
@@ -294,6 +384,12 @@ if st.button("✨ GENERATE ALL", type="primary", use_container_width=True):
     bold_bytes = bold_font_file.read()
     light_bytes = light_font_file.read()
     
+    # Read grain bytes if provided
+    grain_bytes = None
+    if grain_file:
+        grain_file.seek(0)
+        grain_bytes = grain_file.read()
+    
     # Read image bytes if not using solid color
     image_bytes_list = []
     if not use_solid_color:
@@ -323,7 +419,9 @@ if st.button("✨ GENERATE ALL", type="primary", use_container_width=True):
             solid_color=solid_color if use_solid_color else None,
             grayscale=use_grayscale,
             bold_font_bytes=bold_bytes,
-            light_font_bytes=light_bytes
+            light_font_bytes=light_bytes,
+            grain_bytes=grain_bytes,
+            grain_intensity=grain_intensity
         )
         
         # Create filename with saint name
