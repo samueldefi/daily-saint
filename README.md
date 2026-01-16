@@ -1,128 +1,84 @@
-# The Daily Saint - Streamlit App
+# The Daily Saint - Image Generator v2
 
-Generate Instagram-ready saint quote images with a simple web interface.
+Batch generate Instagram-ready saint quote images.
 
 ## Features
 
-- 📜 Load your quotes database (JSON)
-- 🖼️ Upload multiple background images (persistent library)
-- 🎲 Random or manual image selection
-- ✨ One-click image generation
-- 📥 Direct download
-- 🔄 Regenerate for variations
+- ✨ **One-click batch generation** — all quotes generated at once
+- 🎲 **Random image pairing** — each quote gets a random background
+- ⬛ **B&W mode** — grayscale backgrounds for brand consistency (default ON)
+- 🎨 **Solid color mode** — flat color backgrounds with color picker
+- 📏 **Proper margins** — text stays away from edges
+- 📁 **Smart filenames** — saint name in every file for easy searching
+- 📦 **ZIP download** — all images in one download
 
 ## Deploy to Streamlit Cloud
 
-### Step 1: Create GitHub Repository
+### 1. Create GitHub Repo
+- Go to [github.com/new](https://github.com/new)
+- Name: `daily-saint-generator`
+- Private repo recommended
+- Create
 
-1. Go to [github.com/new](https://github.com/new)
-2. Name it `daily-saint-generator` (or whatever you like)
-3. Make it **Private** (recommended)
-4. Click "Create repository"
-
-### Step 2: Upload Files
-
-Upload these files to your repo:
+### 2. Upload These Files
 ```
-daily-saint-generator/
-├── streamlit_app.py      # Main app
-├── requirements.txt      # Python dependencies
-└── packages.txt          # System dependencies (for cairosvg)
+streamlit_app.py
+requirements.txt
+packages.txt
 ```
 
-You can drag and drop files directly on GitHub, or use git:
-```bash
-git clone https://github.com/YOUR_USERNAME/daily-saint-generator.git
-cd daily-saint-generator
-# copy files here
-git add .
-git commit -m "Initial commit"
-git push
-```
-
-### Step 3: Deploy on Streamlit Cloud
-
-1. Go to [share.streamlit.io](https://share.streamlit.io)
-2. Sign in with GitHub
-3. Click "New app"
-4. Select your repository: `daily-saint-generator`
-5. Branch: `main`
-6. Main file path: `streamlit_app.py`
-7. Click "Deploy"
-
-Wait 2-3 minutes for deployment. You'll get a URL like:
-`https://your-app-name.streamlit.app`
+### 3. Deploy
+- Go to [share.streamlit.io](https://share.streamlit.io)
+- Sign in with GitHub
+- New app → select your repo
+- Main file: `streamlit_app.py`
+- Deploy
 
 ## Using the App
 
-### First Time Setup
+### Each Session, Upload:
+1. **Quotes JSON** — your saints-quotes.json
+2. **Background images** — drag & drop multiple
+3. **Fonts** (in expander) — Bold + Light TTF files
 
-1. **Upload Quotes Database**
-   - Upload your `saints-quotes.json` file
-   
-2. **Upload Fonts**
-   - Bold font: `RhymesVFIBoldTrialUnlicensed-Bold.ttf`
-   - Light font: `RhymesVFILight-Light.ttf`
+### Settings:
+- **B&W backgrounds** — ON by default, toggle OFF for color
+- **Solid color** — toggle ON to use flat color instead of images
 
-3. **Upload Icon**
-   - Your cross icon: `saintscroll-icon.svg`
+### Generate:
+1. Click **GENERATE ALL**
+2. Wait for progress bar
+3. Click **Download ZIP**
 
-4. **Upload Background Images**
-   - Drag and drop multiple images at once
-   - They stay in your library for the session
+### Want Different Pairings?
+Just click GENERATE ALL again — images are randomly assigned each time.
 
-### Generating Images
+## File Naming
 
-1. **Filter quotes** by date or saint
-2. **Select a quote** from the dropdown
-3. **Choose background** (random or specific)
-4. **Click Generate**
-5. **Download** the result
+Output files are named: `{Saint_Name}_{number}.jpg`
 
-### Getting Variations
+Examples:
+- `St_Catherine_of_Siena_001.jpg`
+- `St_Francis_de_Sales_002.jpg`
+- `Mary_Mother_of_God_003.jpg`
 
-- Click "Generate" again → same quote, same image, regenerated
-- Click "🔀 Shuffle Background" → picks new random image
-- Change the quote → different content
+## Quotes JSON Format
 
-## File Formats
-
-### saints-quotes.json
 ```json
 {
   "quotes": [
     {
-      "text": "The quote text here",
-      "saint": "St. Name Here",
-      "feastDay": "01-17"
+      "text": "Be who God meant you to be...",
+      "saint": "St. Catherine of Siena",
+      "feastDay": "04-29"
     }
   ]
 }
 ```
 
-### Background Images
-- Formats: JPG, JPEG, PNG
-- Recommended: 1080x1350 or larger
-- Any aspect ratio works (auto-cropped to 4:5)
+## Tips
 
-## Troubleshooting
-
-**App won't deploy:**
-- Make sure `packages.txt` is included (needed for cairosvg)
-
-**Fonts not loading:**
-- Re-upload the font files
-- Make sure they're .ttf or .otf format
-
-**Images look wrong:**
-- Check image dimensions (should be reasonably large)
-- Try a different background image
-
-## Local Development
-
-```bash
-pip install -r requirements.txt
-streamlit run streamlit_app.py
-```
-
-Opens at `http://localhost:8501`
+- Upload more images than quotes for better variety
+- Re-generate multiple times to find good pairings
+- Use B&W mode for consistent branding
+- Solid color mode is great for variety in your feed
