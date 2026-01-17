@@ -1,5 +1,5 @@
 """
-The Daily Saint - Quote Image Generator v2
+The Daily Saint - Quote Image Generator
 Batch generates Instagram-ready saint quote images.
 """
 
@@ -9,7 +9,6 @@ import cairosvg
 import io
 import json
 import random
-import base64
 import zipfile
 import numpy as np
 from datetime import datetime
@@ -25,16 +24,15 @@ st.set_page_config(
 )
 
 # =============================================================================
-# EMBEDDED ASSETS (Base64 encoded)
+# EMBEDDED ASSETS
 # =============================================================================
 
-# Cross icon SVG
 ICON_SVG = '''<svg width="21" height="28" viewBox="0 0 21 28" fill="none" xmlns="http://www.w3.org/2000/svg">
 <path d="M1.23137 11.698V12.0059C1.23137 12.6859 1.78272 13.2373 2.46274 13.2373C3.14277 13.2373 3.69412 12.6859 3.69412 12.0059V11.698H9.23529V24.0118H8.92745C8.24742 24.0118 7.69608 24.5631 7.69608 25.2431C7.69608 25.9232 8.24742 26.4745 8.92745 26.4745H9.23529C9.23529 27.1545 9.78664 27.7059 10.4667 27.7059C11.1467 27.7059 11.698 27.1545 11.698 26.4745H12.0059C12.6859 26.4745 13.2373 25.9232 13.2373 25.2431C13.2373 24.5631 12.6859 24.0118 12.0059 24.0118H11.698V11.698H17.2392V12.0059C17.2392 12.6859 17.7906 13.2373 18.4706 13.2373C19.1506 13.2373 19.702 12.6859 19.702 12.0059V11.698C20.382 11.698 20.9333 11.1467 20.9333 10.4667C20.9333 9.78664 20.382 9.23529 19.702 9.23529V8.92745C19.702 8.24743 19.1506 7.69608 18.4706 7.69608C17.7906 7.69608 17.2392 8.24743 17.2392 8.92745V9.23529H11.698V3.69412H12.0059C12.6859 3.69412 13.2373 3.14277 13.2373 2.46275C13.2373 1.78272 12.6859 1.23137 12.0059 1.23137H11.698C11.698 0.551347 11.1467 0 10.4667 0C9.78664 0 9.23529 0.551347 9.23529 1.23137H8.92745C8.24742 1.23137 7.69608 1.78272 7.69608 2.46275C7.69608 3.14277 8.24742 3.69412 8.92745 3.69412H9.23529V9.23529H3.69412V8.92745C3.69412 8.24743 3.14277 7.69608 2.46274 7.69608C1.78272 7.69608 1.23137 8.24743 1.23137 8.92745V9.23529C0.551347 9.23529 0 9.78664 0 10.4667C0 11.1467 0.551347 11.698 1.23137 11.698Z" fill="white"/>
 </svg>'''
 
 # =============================================================================
-# CONFIGURATION
+# FIXED CONFIGURATION
 # =============================================================================
 
 CONFIG = {
@@ -45,13 +43,12 @@ CONFIG = {
     "overlay_1_opacity": 0.5,
     "overlay_2_color": (0, 0, 0),
     "overlay_2_opacity": 0.2,
-    # Percentages based on Figma (698x882): 42px font, 169px margin, 22px attribution
-    "quote_font_percent": 0.06,        # 6% of width = 65px at 1080
-    "attribution_font_percent": 0.0315, # 3.15% of width = 34px at 1080
-    "margin_lr_percent": 0.242,         # 24.2% each side = 261px at 1080
-    "margin_top": 0.054,                # 5.4% of height for top
-    "icon_scale": 2.55,                 # 15% smaller than previous 3.0
-    "line_spacing": 1.2,                # 120% line spacing
+    "quote_font_percent": 0.06,
+    "attribution_font_percent": 0.0315,
+    "margin_lr_percent": 0.242,
+    "margin_top": 0.054,
+    "icon_scale": 2.55,
+    "line_spacing": 1.2,
 }
 
 # =============================================================================
@@ -86,13 +83,12 @@ def soft_light_blend(base, blend, intensity=0.5):
     base_arr = np.array(base).astype(float) / 255.0
     blend_arr = np.array(blend.convert('L')).astype(float) / 255.0
     
-    # Normalize blend around 0.5 (neutral gray) with intensity control
     blend_arr = 0.5 + (blend_arr - blend_arr.mean()) * intensity
     blend_arr = np.clip(blend_arr, 0, 1)
     
     result = np.zeros_like(base_arr)
     
-    for c in range(min(3, base_arr.shape[2])):  # RGB channels
+    for c in range(min(3, base_arr.shape[2])):
         b = base_arr[:,:,c]
         mask = blend_arr < 0.5
         
@@ -102,7 +98,6 @@ def soft_light_blend(base, blend, intensity=0.5):
             2 * b * (1 - blend_arr) + np.sqrt(np.clip(b, 0.0001, 1)) * (2 * blend_arr - 1)
         )
     
-    # Keep alpha channel from base if present
     if base_arr.shape[2] == 4:
         result[:,:,3] = base_arr[:,:,3]
     
@@ -147,27 +142,23 @@ def generate_image(
     bold_font_bytes: bytes = None,
     light_font_bytes: bytes = None,
     grain_bytes: bytes = None,
-    grain_intensity: float = 0.5,
-    config: dict = CONFIG
+    grain_intensity: float = 0.5
 ) -> Image.Image:
     """Generate a saint quote image."""
     
-    width = config['output_width']
-    height = config['output_height']
+    width = CONFIG['output_width']
+    height = CONFIG['output_height']
     
-    # Calculate sizes from percentages
-    quote_font_size = int(width * config['quote_font_percent'])
-    attribution_font_size = int(width * config['attribution_font_percent'])
-    margin_lr = int(width * config['margin_lr_percent'])
-    margin_top = int(height * config['margin_top'])
-    icon_scale = config['icon_scale']
+    quote_font_size = int(width * CONFIG['quote_font_percent'])
+    attribution_font_size = int(width * CONFIG['attribution_font_percent'])
+    margin_lr = int(width * CONFIG['margin_lr_percent'])
+    margin_top = int(height * CONFIG['margin_top'])
+    icon_scale = CONFIG['icon_scale']
     
     # Create background
     if solid_color:
-        # Solid color background
         bg = Image.new('RGBA', (width, height), hex_to_rgb(solid_color) + (255,))
     else:
-        # Image background
         bg = Image.open(io.BytesIO(background_bytes)).convert('RGBA')
         
         # Crop to 4:5 aspect ratio
@@ -185,15 +176,13 @@ def generate_image(
         
         bg = bg.resize((width, height), Image.Resampling.LANCZOS)
         
-        # Convert to grayscale if enabled
         if grayscale:
             bg = ImageOps.grayscale(bg).convert('RGBA')
         
-        # Apply overlays
-        bg = apply_overlay(bg, config['overlay_1_color'], config['overlay_1_opacity'])
-        bg = apply_overlay(bg, config['overlay_2_color'], config['overlay_2_opacity'])
+        bg = apply_overlay(bg, CONFIG['overlay_1_color'], CONFIG['overlay_1_opacity'])
+        bg = apply_overlay(bg, CONFIG['overlay_2_color'], CONFIG['overlay_2_opacity'])
     
-    # Apply grain texture BEFORE text/icon (soft light blend)
+    # Apply grain texture
     if grain_bytes:
         grain = Image.open(io.BytesIO(grain_bytes))
         grain_resized = grain.resize((width, height), Image.Resampling.LANCZOS)
@@ -205,32 +194,32 @@ def generate_image(
     quote_font = ImageFont.truetype(io.BytesIO(bold_font_bytes), quote_font_size)
     attribution_font = ImageFont.truetype(io.BytesIO(light_font_bytes), attribution_font_size)
     
-    # Place icon (scaled down 15%)
+    # Place icon
     icon = load_svg_as_image(ICON_SVG, scale=icon_scale)
     icon_x = (width - icon.width) // 2
     icon_y = margin_top
     bg.paste(icon, (icon_x, icon_y), icon)
     
-    # Calculate attribution position first (we need this for centering)
+    # Calculate attribution position
     attr_bbox = draw.textbbox((0, 0), saint_name, font=attribution_font)
     attr_height = attr_bbox[3] - attr_bbox[1]
-    attr_y = height - margin_top - attr_height  # Bottom margin
+    attr_y = height - margin_top - attr_height
     
-    # Calculate text area with percentage-based margins
+    # Calculate text area
     max_text_width = width - (margin_lr * 2)
     
     # Wrap and draw quote
     lines = wrap_text(quote, quote_font, max_text_width, draw)
     
-    line_height = int(quote_font_size * config['line_spacing'])  # 120% line spacing default
+    line_height = int(quote_font_size * CONFIG['line_spacing'])
     total_text_height = len(lines) * line_height
     
-    # Center quote BETWEEN icon bottom and attribution top
+    # Center quote between icon and attribution
     icon_bottom = icon_y + icon.height
     available_space = attr_y - icon_bottom
     quote_y = icon_bottom + (available_space - total_text_height) // 2
     
-    text_color = hex_to_rgb(config['text_color'])
+    text_color = hex_to_rgb(CONFIG['text_color'])
     for i, line in enumerate(lines):
         bbox = draw.textbbox((0, 0), line, font=quote_font)
         text_width = bbox[2] - bbox[0]
@@ -265,206 +254,180 @@ def create_zip(images_data):
 # =============================================================================
 
 st.title("✝️ The Daily Saint")
+st.caption("Batch generate Instagram-ready saint quote images")
+
+st.divider()
 
 # -----------------------------------------------------------------------------
-# FILE UPLOADS (compact row)
+# FILE UPLOADS
 # -----------------------------------------------------------------------------
+
+st.subheader("📁 Upload Files")
+
+quotes_file = st.file_uploader("Quotes JSON", type=['json'], help="JSON file with quotes array")
+
+images_files = st.file_uploader(
+    "Background Images", 
+    type=['jpg', 'jpeg', 'png'], 
+    accept_multiple_files=True,
+    help="Upload multiple images for random pairing"
+)
+
+col1, col2 = st.columns(2)
+with col1:
+    bold_font_file = st.file_uploader("Bold Font (quotes)", type=['ttf', 'otf'])
+with col2:
+    light_font_file = st.file_uploader("Light Font (attribution)", type=['ttf', 'otf'])
+
+grain_file = st.file_uploader("Film Grain (optional)", type=['png', 'jpg'], help="Optional texture overlay")
+
+st.divider()
+
+# -----------------------------------------------------------------------------
+# OPTIONS
+# -----------------------------------------------------------------------------
+
+st.subheader("⚙️ Options")
 
 col1, col2 = st.columns(2)
 
 with col1:
-    quotes_file = st.file_uploader("📜 Quotes JSON", type=['json'], key="quotes")
-    
+    use_grayscale = st.checkbox("Black & white backgrounds", value=True)
+
 with col2:
-    images_files = st.file_uploader("🖼️ Background Images", type=['jpg', 'jpeg', 'png'], 
-                                     accept_multiple_files=True, key="images")
+    use_solid_color = st.checkbox("Use solid color instead", value=False)
 
-# Font uploads (in expander to keep UI clean)
-with st.expander("🔤 Fonts & Grain (upload once per session)"):
-    fcol1, fcol2 = st.columns(2)
-    with fcol1:
-        bold_font_file = st.file_uploader("Bold font (quotes)", type=['ttf', 'otf'], key="bold")
-    with fcol2:
-        light_font_file = st.file_uploader("Light font (attribution)", type=['ttf', 'otf'], key="light")
-    
-    grain_file = st.file_uploader("🎞️ Film grain texture (optional)", type=['png', 'jpg'], key="grain")
+if use_solid_color:
+    solid_color = st.color_picker("Background color", value="#1a1a1a")
+else:
+    solid_color = None
 
-# -----------------------------------------------------------------------------
-# SETTINGS (compact)
-# -----------------------------------------------------------------------------
+# Grain intensity slider (only show if grain uploaded)
+grain_intensity = 0.5
+if grain_file:
+    grain_intensity = st.slider(
+        "Grain intensity",
+        min_value=0.1, 
+        max_value=1.0,
+        value=0.5, 
+        step=0.1,
+        help="0.5 = subtle, 1.0 = strong"
+    )
 
-with st.expander("⚙️ Settings", expanded=True):
-    scol1, scol2 = st.columns(2)
-    
-    with scol1:
-        use_grayscale = st.toggle("Black & White backgrounds", value=True)
-    
-    with scol2:
-        use_solid_color = st.toggle("Use solid color instead", value=False)
-    
-    if use_solid_color:
-        solid_color = st.color_picker("Background color", value="#1a1a1a")
-    else:
-        solid_color = None
-    
-    # Grain intensity (only show if grain uploaded)
-    grain_intensity = 0.5  # default
-    if grain_file:
-        grain_intensity = st.slider(
-            "🎞️ Grain intensity",
-            min_value=0.1, max_value=1.0,
-            value=0.5, step=0.1,
-            help="0.5 = subtle, 1.0 = strong"
-        )
-    
-    # Advanced settings
-    with st.expander("🎛️ Fine-tune (optional)"):
-        tcol1, tcol2 = st.columns(2)
-        with tcol1:
-            quote_font_pct = st.slider(
-                "Quote font size %", 
-                min_value=0.04, max_value=0.10, 
-                value=0.06, step=0.005,
-                help="6% = matches Figma"
-            )
-            margin_lr_pct = st.slider(
-                "Side margins %",
-                min_value=0.10, max_value=0.35,
-                value=0.242, step=0.01,
-                help="24.2% = matches Figma"
-            )
-            line_spacing_pct = st.slider(
-                "Line spacing %",
-                min_value=1.0, max_value=1.5,
-                value=1.2, step=0.05,
-                help="1.2 = 120% (matches Figma)"
-            )
-        with tcol2:
-            attr_font_pct = st.slider(
-                "Attribution font %",
-                min_value=0.02, max_value=0.05,
-                value=0.0315, step=0.005,
-                help="3.15% = matches Figma"
-            )
-            icon_scale_val = st.slider(
-                "Icon size",
-                min_value=1.5, max_value=4.0,
-                value=2.55, step=0.15,
-                help="2.55 = matches Figma"
-            )
-        
-        # Update config with slider values
-        CONFIG['quote_font_percent'] = quote_font_pct
-        CONFIG['attribution_font_percent'] = attr_font_pct
-        CONFIG['margin_lr_percent'] = margin_lr_pct
-        CONFIG['icon_scale'] = icon_scale_val
-        CONFIG['line_spacing'] = line_spacing_pct
+st.divider()
 
 # -----------------------------------------------------------------------------
-# STATUS & GENERATE
+# STATUS CHECK
 # -----------------------------------------------------------------------------
 
-# Check what we have
 quotes_ready = quotes_file is not None
 images_ready = len(images_files) > 0 if images_files else False
 fonts_ready = bold_font_file is not None and light_font_file is not None
 
-# Load quotes if available
+# Load quotes
 quotes = []
 if quotes_ready:
-    quotes_file.seek(0)
-    quotes_data = json.load(quotes_file)
-    quotes = quotes_data.get('quotes', [])
+    try:
+        quotes_file.seek(0)
+        quotes_data = json.load(quotes_file)
+        quotes = quotes_data.get('quotes', [])
+    except json.JSONDecodeError:
+        st.error("❌ Invalid JSON file")
+        st.stop()
 
-# Status display
+# Status
 if quotes_ready and (images_ready or use_solid_color) and fonts_ready:
     if use_solid_color:
-        st.success(f"✅ Ready: **{len(quotes)} quotes** • Solid color mode")
+        st.success(f"✅ Ready: {len(quotes)} quotes • Solid color mode")
     else:
-        st.success(f"✅ Ready: **{len(quotes)} quotes** • **{len(images_files)} images**")
+        st.success(f"✅ Ready: {len(quotes)} quotes • {len(images_files)} backgrounds")
 else:
     missing = []
     if not quotes_ready:
-        missing.append("quotes")
+        missing.append("quotes JSON")
     if not images_ready and not use_solid_color:
-        missing.append("images")
+        missing.append("background images")
     if not fonts_ready:
-        missing.append("fonts")
-    st.warning(f"⚠️ Upload: {', '.join(missing)}")
+        missing.append("fonts (both)")
+    st.warning(f"⚠️ Missing: {', '.join(missing)}")
     st.stop()
 
 # -----------------------------------------------------------------------------
-# GENERATE BUTTON
+# GENERATE
 # -----------------------------------------------------------------------------
 
-if st.button("✨ GENERATE ALL", type="primary", use_container_width=True):
+if st.button("✨ Generate All Images", type="primary", use_container_width=True):
     
-    # Read font bytes
+    # Read fonts
     bold_font_file.seek(0)
     light_font_file.seek(0)
     bold_bytes = bold_font_file.read()
     light_bytes = light_font_file.read()
     
-    # Read grain bytes if provided
+    # Read grain
     grain_bytes = None
     if grain_file:
         grain_file.seek(0)
         grain_bytes = grain_file.read()
     
-    # Read image bytes if not using solid color
+    # Read images
     image_bytes_list = []
     if not use_solid_color:
         for img_file in images_files:
             img_file.seek(0)
             image_bytes_list.append(img_file.read())
     
-    # Generate images
+    # Generate
     generated = []
     progress = st.progress(0, text="Generating...")
     
     for i, quote_data in enumerate(quotes):
-        quote_text = quote_data['text']
-        saint_name = quote_data['saint']
+        quote_text = quote_data.get('text', '')
+        saint_name = quote_data.get('saint', 'Unknown Saint')
         
-        # Pick random background or use solid color
         if use_solid_color:
             bg_bytes = None
         else:
             bg_bytes = random.choice(image_bytes_list)
         
-        # Generate
-        img = generate_image(
-            quote=quote_text,
-            saint_name=saint_name,
-            background_bytes=bg_bytes,
-            solid_color=solid_color if use_solid_color else None,
-            grayscale=use_grayscale,
-            bold_font_bytes=bold_bytes,
-            light_font_bytes=light_bytes,
-            grain_bytes=grain_bytes,
-            grain_intensity=grain_intensity
-        )
+        try:
+            img = generate_image(
+                quote=quote_text,
+                saint_name=saint_name,
+                background_bytes=bg_bytes,
+                solid_color=solid_color if use_solid_color else None,
+                grayscale=use_grayscale,
+                bold_font_bytes=bold_bytes,
+                light_font_bytes=light_bytes,
+                grain_bytes=grain_bytes,
+                grain_intensity=grain_intensity
+            )
+            
+            safe_name = sanitize_filename(saint_name)
+            filename = f"{safe_name}_{i+1:03d}.jpg"
+            generated.append((filename, img))
+            
+        except Exception as e:
+            st.error(f"Error generating image {i+1}: {str(e)}")
+            continue
         
-        # Create filename with saint name
-        safe_name = sanitize_filename(saint_name)
-        filename = f"{safe_name}_{i+1:03d}.jpg"
-        generated.append((filename, img))
-        
-        # Update progress
         progress.progress((i + 1) / len(quotes), text=f"Generated {i + 1}/{len(quotes)}")
     
     st.session_state.generated_images = generated
     progress.empty()
-    st.success(f"✅ Generated **{len(generated)} images**")
+    
+    if generated:
+        st.success(f"✅ Generated {len(generated)} images!")
 
 # -----------------------------------------------------------------------------
-# DOWNLOAD
+# DOWNLOAD & PREVIEW
 # -----------------------------------------------------------------------------
 
 if st.session_state.generated_images:
-    # Create ZIP
-    zip_data = create_zip(st.session_state.generated_images)
+    st.divider()
     
+    # Download button
+    zip_data = create_zip(st.session_state.generated_images)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     
     st.download_button(
@@ -475,16 +438,19 @@ if st.session_state.generated_images:
         use_container_width=True
     )
     
-    # Preview (show first 3)
-    with st.expander(f"👁️ Preview ({min(3, len(st.session_state.generated_images))} of {len(st.session_state.generated_images)})"):
-        preview_cols = st.columns(3)
-        for i, (filename, img) in enumerate(st.session_state.generated_images[:3]):
-            with preview_cols[i]:
-                st.image(img, caption=filename, use_container_width=True)
+    # Preview
+    st.subheader("👁️ Preview")
+    
+    preview_count = min(6, len(st.session_state.generated_images))
+    cols = st.columns(3)
+    
+    for i, (filename, img) in enumerate(st.session_state.generated_images[:preview_count]):
+        with cols[i % 3]:
+            st.image(img, caption=filename, use_container_width=True)
 
 # -----------------------------------------------------------------------------
 # FOOTER
 # -----------------------------------------------------------------------------
 
 st.divider()
-st.caption("Made with ✝️ for The Daily Saint • Click Generate again for new random pairings")
+st.caption("Made for The Daily Saint • Click generate again for new random pairings")
