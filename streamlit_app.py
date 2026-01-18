@@ -1,6 +1,7 @@
 """
 The Daily Saint - Quote Image Generator
 Batch generates Instagram-ready saint quote images.
+Memory-optimized for large batches.
 """
 
 import streamlit as st
@@ -12,6 +13,7 @@ import random
 import zipfile
 import numpy as np
 from datetime import datetime
+import gc
 
 # =============================================================================
 # PAGE CONFIG
@@ -57,6 +59,8 @@ CONFIG = {
 
 if 'generated_images' not in st.session_state:
     st.session_state.generated_images = []
+if 'zip_ready' not in st.session_state:
+    st.session_state.zip_ready = None
 
 # =============================================================================
 # HELPER FUNCTIONS
@@ -79,12 +83,12 @@ def apply_overlay(image, color, opacity):
 
 
 def soft_light_blend(base, blend, intensity=0.5):
-    """Apply soft light blending mode for film grain effect."""
-    base_arr = np.array(base).astype(float) / 255.0
-    blend_arr = np.array(blend.convert('L')).astype(float) / 255.0
+    """Apply soft light blending mode for film grain effect. Memory optimized."""
+    base_arr = np.array(base, dtype=np.float32) / 255.0
+    blend_arr = np.array(blend.convert('L'), dtype=np.float32) / 255.0
     
     blend_arr = 0.5 + (blend_arr - blend_arr.mean()) * intensity
-    blend_arr = np.clip(blend_arr, 0, 1)
+    np.clip(blend_arr, 0, 1, out=blend_arr)
     
     result = np.zeros_like(base_arr)
     
@@ -102,6 +106,10 @@ def soft_light_blend(base, blend, intensity=0.5):
         result[:,:,3] = base_arr[:,:,3]
     
     result = np.clip(result * 255, 0, 255).astype(np.uint8)
+    
+    # Clean up
+    del base_arr, blend_arr
+    
     return Image.fromarray(result, mode=base.mode)
 
 
@@ -134,17 +142,17 @@ def sanitize_filename(name):
 
 
 def generate_image(
-    quote: str,
-    saint_name: str,
-    background_bytes: bytes = None,
-    solid_color: str = None,
-    grayscale: bool = True,
-    bold_font_bytes: bytes = None,
-    light_font_bytes: bytes = None,
-    grain_bytes: bytes = None,
-    grain_intensity: float = 0.5
-) -> Image.Image:
-    """Generate a saint quote image."""
+    quote,
+    saint_name,
+    background_bytes=None,
+    solid_color=None,
+    grayscale=True,
+    bold_font_bytes=None,
+    light_font_bytes=None,
+    grain_image=None,
+    grain_intensity=0.5
+):
+    """Generate a saint quote image. Memory optimized."""
     
     width = CONFIG['output_width']
     height = CONFIG['output_height']
@@ -182,11 +190,9 @@ def generate_image(
         bg = apply_overlay(bg, CONFIG['overlay_1_color'], CONFIG['overlay_1_opacity'])
         bg = apply_overlay(bg, CONFIG['overlay_2_color'], CONFIG['overlay_2_opacity'])
     
-    # Apply grain texture
-    if grain_bytes:
-        grain = Image.open(io.BytesIO(grain_bytes))
-        grain_resized = grain.resize((width, height), Image.Resampling.LANCZOS)
-        bg = soft_light_blend(bg, grain_resized, intensity=grain_intensity)
+    # Apply grain texture (use pre-loaded grain image)
+    if grain_image is not None:
+        bg = soft_light_blend(bg, grain_image, intensity=grain_intensity)
     
     draw = ImageDraw.Draw(bg)
     
@@ -199,6 +205,9 @@ def generate_image(
     icon_x = (width - icon.width) // 2
     icon_y = margin_top
     bg.paste(icon, (icon_x, icon_y), icon)
+    
+    # Clean up icon
+    del icon
     
     # Calculate attribution position
     attr_bbox = draw.textbbox((0, 0), saint_name, font=attribution_font)
@@ -215,7 +224,7 @@ def generate_image(
     total_text_height = len(lines) * line_height
     
     # Center quote between icon and attribution
-    icon_bottom = icon_y + icon.height
+    icon_bottom = margin_top + int(28 * icon_scale)  # Approximate icon height
     available_space = attr_y - icon_bottom
     quote_y = icon_bottom + (available_space - total_text_height) // 2
     
@@ -235,18 +244,12 @@ def generate_image(
     return bg.convert('RGB')
 
 
-def create_zip(images_data):
-    """Create a ZIP file from list of (filename, image) tuples."""
-    zip_buffer = io.BytesIO()
-    
-    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
-        for filename, img in images_data:
-            img_buffer = io.BytesIO()
-            img.save(img_buffer, format='JPEG', quality=95)
-            zf.writestr(filename, img_buffer.getvalue())
-    
-    zip_buffer.seek(0)
-    return zip_buffer
+def add_image_to_zip(zf, filename, img):
+    """Add a single image to zip file."""
+    img_buffer = io.BytesIO()
+    img.save(img_buffer, format='JPEG', quality=92)  # Slightly lower quality for memory
+    zf.writestr(filename, img_buffer.getvalue())
+    img_buffer.close()
 
 
 # =============================================================================
@@ -311,8 +314,10 @@ if grain_file:
         max_value=1.0,
         value=0.5, 
         step=0.1,
-        help="0.5 = subtle, 1.0 = strong"
+        help="0.5 = subtle, 1.0 = strong. Higher values use more memory."
     )
+    if grain_intensity > 0.7:
+        st.caption("⚠️ High grain intensity may slow processing for large batches")
 
 st.divider()
 
@@ -321,8 +326,8 @@ st.divider()
 # -----------------------------------------------------------------------------
 
 quotes_ready = quotes_file is not None
-images_ready = len(images_files) > 0 if images_files else False
-fonts_ready = bold_font_file is not None and light_font_file is not None
+images_ready = (images_files is not None) and (len(images_files) > 0)
+fonts_ready = (bold_font_file is not None) and (light_font_file is not None)
 
 # Load quotes
 quotes = []
@@ -341,6 +346,10 @@ if quotes_ready and (images_ready or use_solid_color) and fonts_ready:
         st.success(f"✅ Ready: {len(quotes)} quotes • Solid color mode")
     else:
         st.success(f"✅ Ready: {len(quotes)} quotes • {len(images_files)} backgrounds")
+    
+    # Warning for large batches
+    if len(quotes) > 200:
+        st.info(f"ℹ️ Large batch ({len(quotes)} images). Processing may take a few minutes.")
 else:
     missing = []
     if not quotes_ready:
@@ -358,92 +367,136 @@ else:
 
 if st.button("✨ Generate All Images", type="primary"):
     
-    # Read fonts
+    # Clear previous results
+    st.session_state.generated_images = []
+    st.session_state.zip_ready = None
+    gc.collect()
+    
+    # Read fonts once
     bold_font_file.seek(0)
     light_font_file.seek(0)
     bold_bytes = bold_font_file.read()
     light_bytes = light_font_file.read()
     
-    # Read grain
-    grain_bytes = None
+    # Pre-load and resize grain image once (memory optimization)
+    grain_image = None
     if grain_file:
         grain_file.seek(0)
-        grain_bytes = grain_file.read()
+        grain_image = Image.open(grain_file)
+        grain_image = grain_image.resize(
+            (CONFIG['output_width'], CONFIG['output_height']), 
+            Image.Resampling.LANCZOS
+        )
     
-    # Read images
+    # Read images once
     image_bytes_list = []
     if not use_solid_color:
         for img_file in images_files:
             img_file.seek(0)
             image_bytes_list.append(img_file.read())
     
-    # Generate
-    generated = []
-    progress = st.progress(0, text="Generating...")
+    # Create ZIP in memory, write images directly to it
+    zip_buffer = io.BytesIO()
+    preview_images = []
     
-    for i, quote_data in enumerate(quotes):
-        quote_text = quote_data.get('text', '')
-        saint_name = quote_data.get('saint', 'Unknown Saint')
-        
-        if use_solid_color:
-            bg_bytes = None
-        else:
-            bg_bytes = random.choice(image_bytes_list)
-        
-        try:
-            img = generate_image(
-                quote=quote_text,
-                saint_name=saint_name,
-                background_bytes=bg_bytes,
-                solid_color=solid_color if use_solid_color else None,
-                grayscale=use_grayscale,
-                bold_font_bytes=bold_bytes,
-                light_font_bytes=light_bytes,
-                grain_bytes=grain_bytes,
-                grain_intensity=grain_intensity
-            )
-            
-            safe_name = sanitize_filename(saint_name)
-            filename = f"{safe_name}_{i+1:03d}.jpg"
-            generated.append((filename, img))
-            
-        except Exception as e:
-            st.error(f"Error generating image {i+1}: {str(e)}")
-            continue
-        
-        progress.progress((i + 1) / len(quotes), text=f"Generated {i + 1}/{len(quotes)}")
+    progress = st.progress(0, text="Starting...")
+    status_text = st.empty()
     
-    st.session_state.generated_images = generated
-    progress.empty()
-    
-    if generated:
-        st.success(f"✅ Generated {len(generated)} images!")
+    try:
+        with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
+            for i, quote_data in enumerate(quotes):
+                quote_text = quote_data.get('text', '')
+                saint_name = quote_data.get('saint', 'Unknown Saint')
+                
+                if use_solid_color:
+                    bg_bytes = None
+                else:
+                    bg_bytes = random.choice(image_bytes_list)
+                
+                try:
+                    img = generate_image(
+                        quote=quote_text,
+                        saint_name=saint_name,
+                        background_bytes=bg_bytes,
+                        solid_color=solid_color if use_solid_color else None,
+                        grayscale=use_grayscale,
+                        bold_font_bytes=bold_bytes,
+                        light_font_bytes=light_bytes,
+                        grain_image=grain_image,
+                        grain_intensity=grain_intensity
+                    )
+                    
+                    safe_name = sanitize_filename(saint_name)
+                    filename = f"{safe_name}_{i+1:03d}.jpg"
+                    
+                    # Write directly to ZIP (memory efficient)
+                    add_image_to_zip(zf, filename, img)
+                    
+                    # Keep only first 6 for preview
+                    if len(preview_images) < 6:
+                        preview_images.append((filename, img.copy()))
+                    
+                    # Clean up
+                    del img
+                    
+                except Exception as e:
+                    st.error(f"Error on image {i+1}: {str(e)}")
+                    continue
+                
+                # Update progress
+                pct = (i + 1) / len(quotes)
+                progress.progress(pct, text=f"Generated {i + 1}/{len(quotes)}")
+                
+                # Garbage collect every 50 images
+                if (i + 1) % 50 == 0:
+                    gc.collect()
+                    status_text.text(f"Processing... {i+1}/{len(quotes)} complete")
+        
+        # Store results
+        st.session_state.generated_images = preview_images
+        zip_buffer.seek(0)
+        st.session_state.zip_ready = zip_buffer.getvalue()
+        
+        progress.empty()
+        status_text.empty()
+        st.success(f"✅ Generated {len(quotes)} images!")
+        
+        # Final cleanup
+        del image_bytes_list, bold_bytes, light_bytes
+        if grain_image:
+            del grain_image
+        gc.collect()
+        
+    except Exception as e:
+        st.error(f"❌ Generation failed: {str(e)}")
+        # Try to save what we have
+        if zip_buffer.tell() > 0:
+            zip_buffer.seek(0)
+            st.session_state.zip_ready = zip_buffer.getvalue()
+            st.warning("⚠️ Partial results may be available for download")
 
 # -----------------------------------------------------------------------------
 # DOWNLOAD & PREVIEW
 # -----------------------------------------------------------------------------
 
-if st.session_state.generated_images:
+if st.session_state.zip_ready:
     st.divider()
     
-    # Download button
-    zip_data = create_zip(st.session_state.generated_images)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     
     st.download_button(
-        label=f"📥 Download ZIP ({len(st.session_state.generated_images)} images)",
-        data=zip_data,
+        label=f"📥 Download ZIP",
+        data=st.session_state.zip_ready,
         file_name=f"daily_saint_{timestamp}.zip",
         mime="application/zip"
     )
-    
+
+if st.session_state.generated_images:
     # Preview
     st.subheader("👁️ Preview")
     
-    preview_count = min(6, len(st.session_state.generated_images))
     cols = st.columns(3)
-    
-    for i, (filename, img) in enumerate(st.session_state.generated_images[:preview_count]):
+    for i, (filename, img) in enumerate(st.session_state.generated_images[:6]):
         with cols[i % 3]:
             st.image(img, caption=filename)
 
