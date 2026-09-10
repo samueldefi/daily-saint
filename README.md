@@ -1,32 +1,28 @@
-# The Daily Saint - Image Generator
+# The Daily Saint
 
-Batch generate Instagram-ready saint quote images (1080x1350).
+Next.js studio that batch-generates Instagram saint quote images at 1080×1350.
+
+The Streamlit app stays in this repo. This branch rebuilds the same generator as a browser studio.
 
 ## Features
 
-- Batch generation — all quotes at once
-- Random image pairing
-- B&W mode (default ON)
+- Batch generation for every quote in a JSON file
+- Random background pairing
+- Black and white mode (on by default)
 - Solid color backgrounds
 - Film grain with intensity control
-- ZIP download
+- ZIP download of JPEG files
 
-## Files
+## Run locally
 
-```
-streamlit_app.py    # Main application
-requirements.txt    # Python dependencies  
-packages.txt        # System dependencies
-README.md           # This file
+```bash
+npm install
+npm run dev
 ```
 
-## Deploy to Streamlit Cloud
+Open http://localhost:3000
 
-1. Create GitHub repo, upload all 4 files
-2. Go to share.streamlit.io
-3. New app → select repo → Deploy
-
-## Quotes JSON Format
+## Quotes JSON
 
 ```json
 {
@@ -38,3 +34,20 @@ README.md           # This file
   ]
 }
 ```
+
+A sample file is in `public/samples/quotes.json`. The studio also has a **Load sample quotes** control.
+
+Fonts are optional. The studio ships Cormorant Garamond for quotes and attribution. Upload `.ttf` or `.otf` files to replace them.
+
+## Deploy
+
+Push this branch and deploy on Vercel. The app runs in the browser. It does not need Python.
+
+## Streamlit
+
+The original files remain:
+
+- `streamlit_app.py`
+- `streamlit_app(3).py`
+- `requirements.txt`
+- `packages.txt`

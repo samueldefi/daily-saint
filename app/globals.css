@@ -1,0 +1,64 @@
+@import "tailwindcss";
+
+:root {
+  --cream: #fff4ef;
+  --cream-dim: rgba(255, 244, 239, 0.62);
+  --cream-mute: rgba(255, 244, 239, 0.38);
+  --line: rgba(255, 244, 239, 0.12);
+  --panel: #161311;
+  --bg: #0e0c0b;
+  --gold: #c4a574;
+}
+
+@theme inline {
+  --color-cream: var(--cream);
+  --color-cream-dim: var(--cream-dim);
+  --color-cream-mute: var(--cream-mute);
+  --color-line: var(--line);
+  --color-panel: var(--panel);
+  --color-bg: var(--bg);
+  --color-gold: var(--gold);
+  --font-sans: var(--font-geist-sans);
+  --font-serif: var(--font-instrument);
+}
+
+html,
+body {
+  background: var(--bg);
+  color: var(--cream);
+}
+
+body {
+  font-family: var(--font-sans), system-ui, sans-serif;
+}
+
+::selection {
+  background: rgba(196, 165, 116, 0.35);
+  color: var(--cream);
+}
+
+input[type="file"] {
+  display: none;
+}
+
+input[type="color"] {
+  -webkit-appearance: none;
+  appearance: none;
+  border: 0;
+  padding: 0;
+  background: none;
+  cursor: pointer;
+}
+
+input[type="color"]::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+input[type="color"]::-webkit-color-swatch {
+  border: 1px solid var(--line);
+  border-radius: 4px;
+}
+
+input[type="range"] {
+  accent-color: var(--gold);
+}
