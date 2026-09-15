@@ -1,34 +1,29 @@
 import type { Metadata } from "next";
-import { Geist, Instrument_Serif } from "next/font/google";
+import { Fraunces } from "next/font/google";
+import { AppShell } from "@/components/AppShell";
+import { Providers } from "@/components/Providers";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const oracle = Fraunces({
   subsets: ["latin"],
-});
-
-const instrumentSerif = Instrument_Serif({
-  variable: "--font-instrument",
-  subsets: ["latin"],
-  weight: "400",
+  weight: ["300", "400", "500"],
+  variable: "--font-cosmosoracle",
+  display: "swap",
 });
 
 export const metadata: Metadata = {
   title: "The Daily Saint",
-  description: "Batch generate Instagram-ready saint quote images.",
+  description: "Build a saint quote library and export Instagram cards.",
 };
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html
-      lang="en"
-      className={`${geistSans.variable} ${instrumentSerif.variable} h-full antialiased`}
-    >
-      <body className="min-h-full">{children}</body>
+    <html lang="en" className={`${oracle.variable} h-full`}>
+      <body className={`${oracle.className} min-h-full`}>
+        <Providers>
+          <AppShell>{children}</AppShell>
+        </Providers>
+      </body>
     </html>
   );
 }

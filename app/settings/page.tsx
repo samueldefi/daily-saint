@@ -1,10 +1,10 @@
 "use client";
 
-import { StudioClient } from "@/components/StudioClient";
+import { SettingsClient } from "@/components/SettingsClient";
 import { useLibrary } from "@/lib/library-context";
 
-export default function StudioPage() {
+export default function SettingsPage() {
   const library = useLibrary();
   if (!library.ready) return <p className="text-[#6e6a69]">Loading library…</p>;
-  return <StudioClient />;
+  return <SettingsClient />;
 }

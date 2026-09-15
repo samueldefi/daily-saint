@@ -1,53 +1,34 @@
 # The Daily Saint
 
-Next.js studio that batch-generates Instagram saint quote images at 1080×1350.
+Studio for Instagram saint-quote cards (1080×1350).
 
-The Streamlit app stays in this repo. This branch rebuilds the same generator as a browser studio.
+## Run
 
-## Features
-
-- Batch generation for every quote in a JSON file
-- Random background pairing
-- Black and white mode (on by default)
-- Solid color backgrounds
-- Film grain with intensity control
-- ZIP download of JPEG files
-
-## Run locally
-
-```bash
+```
 npm install
 npm run dev
 ```
 
 Open http://localhost:3000
 
-## Quotes JSON
+## Quote database on Vercel
 
-```json
-{
-  "quotes": [
-    {
-      "text": "Quote text here",
-      "saint": "St. Name Here"
-    }
-  ]
-}
-```
+1. Import this GitHub repo in Vercel.
+2. Storage (or Marketplace) → Neon → free plan → connect.
+3. Redeploy so the app can read `DATABASE_URL`.
+4. Open Quotes and import your JSON.
 
-A sample file is in `public/samples/quotes.json`. The studio also has a **Load sample quotes** control.
+Clearing the browser cache does not remove quotes after Neon is connected.
 
-Fonts are optional. The studio ships Cormorant Garamond for quotes and attribution. Upload `.ttf` or `.otf` files to replace them.
+Import skips a quote when the text and saint already match. Search covers text, saint, and feast day. Export JSON anytime as a backup.
 
-## Deploy
+## Use
 
-Push this branch and deploy on Vercel. The app runs in the browser. It does not need Python.
+1. Add or import quotes (`text`, `saint`, `feastDay`).
+2. Upload background photos (photos still live in this browser).
+3. In Studio, start from a random pair.
+4. Shuffle or choose a background if the photo does not fit.
+5. Set greyscale, overlay colour, overlay opacity, and grain.
+6. Download the card. That quote is marked used in the database.
 
-## Streamlit
-
-The original files remain:
-
-- `streamlit_app.py`
-- `streamlit_app(3).py`
-- `requirements.txt`
-- `packages.txt`
+The old Streamlit app is in `legacy/`.
