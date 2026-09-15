@@ -21,6 +21,7 @@ export function PhotosClient() {
       <label className="paper-card block cursor-pointer p-6 text-[#6e6a69]">
         Add photos
         <input
+          name="photos"
           type="file"
           multiple
           accept="image/jpeg,image/png,image/webp"

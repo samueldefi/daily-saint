@@ -167,7 +167,7 @@ export function QuotesClient() {
       {duplicates.length ? (
         <section className="paper-card space-y-4 p-6">
           <h2 className="text-[18px]">Duplicates skipped</h2>
-          <p className="text-[14px] text-[#6e6a69]">These quotes were already in the database.</p>
+          <p className="text-[14px] text-[#6e6a69]">These quotes were already in the library.</p>
           <ul className="space-y-4">
             {duplicates.map((quote) => (
               <li key={quote.id} className="text-[16px]">

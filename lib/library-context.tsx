@@ -92,14 +92,20 @@ export function LibraryProvider({ children }: { children: React.ReactNode }) {
   const fontUrls = useRef<{ quote?: string; author?: string }>({});
 
   const refresh = useCallback(async () => {
-    const persistence = await getQuotePersistence();
-    const [nextQuotes, nextPhotos, nextSettings, quoteFont, authorFont] = await Promise.all([
-      persistence.durable ? getQuotes() : loadLocalQuotes(),
-      loadPhotos(),
-      loadSettings(),
-      loadFont("quote"),
-      loadFont("author"),
-    ]);
+    try {
+      let durable = false;
+      try {
+        durable = (await getQuotePersistence()).durable;
+      } catch {
+        durable = false;
+      }
+      const [nextQuotes, nextPhotos, nextSettings, quoteFont, authorFont] = await Promise.all([
+        durable ? getQuotes() : loadLocalQuotes(),
+        loadPhotos(),
+        loadSettings(),
+        loadFont("quote"),
+        loadFont("author"),
+      ]);
 
     photoUrls.current.forEach((url) => URL.revokeObjectURL(url));
     const mapped = nextPhotos.map((photo: PhotoRecord) => {
@@ -124,10 +130,14 @@ export function LibraryProvider({ children }: { children: React.ReactNode }) {
 
     setQuotes(nextQuotes);
     setSettings(nextSettings);
-    setDurableQuotes(persistence.durable);
+    setDurableQuotes(durable);
     setQuoteFontUrl(nextQuoteFont);
     setAuthorFontUrl(nextAuthorFont);
     setReady(true);
+    } catch (error) {
+      console.error("Library failed to load", error);
+      setReady(true);
+    }
   }, []);
 
   useEffect(() => {
